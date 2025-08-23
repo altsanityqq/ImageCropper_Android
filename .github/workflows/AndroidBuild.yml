@@ -1,52 +1,54 @@
 name: Android Build
-
 on:
   pull_request:
     branches: ["main"]
   push:
     branches: ["main"]
-
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4.1.1
-
       - name: Setup Java JDK
         uses: actions/setup-java@v4.0.0
         with:
           java-version: '17'
           distribution: 'temurin'
-
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v3
-
       - name: Make gradlew executable
         run: chmod +x ./gradlew
-
       - name: Assemble Debug
         run: ./gradlew assembleDebug
-
-      - name: List APK(s)
-        run: |
-          ls -la app/build/outputs/apk/debug || true
-          find app/build -name "*.apk" -maxdepth 4 || true
-
       - name: Prepare artifact
         run: |
           mkdir -p build_out
           cp app/build/outputs/apk/debug/app-debug.apk build_out/app-debug.apk
-
-      - name: Upload Debug APK (artifact)
-        uses: actions/upload-artifact@v4
+      - name: Create or update tag debug-latest
+        uses: actions/github-script@v7
         with:
-          name: AndroidCICD.apk
-          path: build_out/app-debug.apk
-          retention-days: 7
-
-      - name: Publish/Update GitHub Release (debug-latest)
+          script: |
+            const sha = context.sha
+            try {
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'tags/debug-latest',
+                sha: sha,
+                force: true
+              })
+            } catch (e) {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'refs/tags/debug-latest',
+                sha: sha
+              })
+            }
+      - name: Publish/Update GitHub Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
