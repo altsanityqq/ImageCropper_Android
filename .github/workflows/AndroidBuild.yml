@@ -1,23 +1,16 @@
-# This is a basic workflow to help you get started with Actions
 name: Android Build
 
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
   pull_request:
     branches: ["main"]
   push:
     branches: ["main"]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    # Steps represent a sequence of tasks that will be executed as part of the job
+
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout
         uses: actions/checkout@v4.1.1
 
@@ -25,17 +18,43 @@ jobs:
         uses: actions/setup-java@v4.0.0
         with:
           java-version: '17'
-          distribution: 'adopt'
+          distribution: 'temurin'
 
-      - name: Change wrapper permissions
+      - name: Gradle cache
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # Runs a single command using the runners shell
-      - name: Build with Gradle
-        run: ./gradlew build
+      - name: Assemble Debug
+        run: ./gradlew assembleDebug
 
-      - name: Upload a Build Artifact
+      - name: List APK(s)
+        run: |
+          ls -la app/build/outputs/apk/debug || true
+          find app/build -name "*.apk" -maxdepth 4 || true
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p build_out
+          cp app/build/outputs/apk/debug/app-debug.apk build_out/app-debug.apk
+
+      - name: Upload Debug APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: AndroidCICD.apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: build_out/app-debug.apk
+          retention-days: 7
+
+      - name: Publish/Update GitHub Release (debug-latest)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: debug-latest
+          name: Debug latest
+          prerelease: true
+          files: build_out/app-debug.apk
+          generate_release_notes: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
