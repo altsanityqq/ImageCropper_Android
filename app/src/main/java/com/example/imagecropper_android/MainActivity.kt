@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.example.imagecropper_android.ui.ImagesScreen
 import com.example.imagecropper_android.ui.theme.ImageCropper_AndroidTheme
 
 class MainActivity : ComponentActivity() {
