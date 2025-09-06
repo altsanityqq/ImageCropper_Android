@@ -1,5 +1,6 @@
 package com.example.imagecropper_android.ui
 
+import android.Manifest
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -25,7 +26,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +56,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.consumePositionChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -61,7 +63,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.example.imagecropper_android.R
+import java.io.File
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -75,18 +79,38 @@ fun ImagesScreen() {
         mutableStateOf(imageUri?.let { loadBitmap(context, it) })
     }
 
-    var imageSize by remember { mutableStateOf(IntSize.Zero) }
-
     val pickMedia = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         imageUri = uri
     }
 
-    val takePhoto = rememberLauncherForActivityResult(
-        ActivityResultContracts.TakePicture()
-    ) { b ->
+    val takePicture = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            imageUri?.let { uri ->
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    bitmap = BitmapFactory.decodeStream(input)
+                }
+            }
+        }
+    }
 
+    val reqPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val imagesDir = File(context.cacheDir, "images").apply { mkdirs() }
+            val photoFile = File.createTempFile("capture_", ".jpg", imagesDir)
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            imageUri = uri
+            takePicture.launch(uri)
+        }
     }
 
     Scaffold(
@@ -96,6 +120,7 @@ fun ImagesScreen() {
                     pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
                 onTakePhotoClick = {
+                    reqPermission.launch(Manifest.permission.CAMERA)
                 },
             )
         }
@@ -104,9 +129,6 @@ fun ImagesScreen() {
             ImagesScreenContent(
                 modifier = Modifier.padding(innerPaddings),
                 bitmap = it,
-                onGloballyPositioned = { coordinates ->
-                    imageSize = coordinates.size
-                }
             )
         }
     }
@@ -203,7 +225,6 @@ private fun MultipleFloatingActionButton(
 private fun ImagesScreenContent(
     modifier: Modifier = Modifier,
     bitmap: Bitmap,
-    onGloballyPositioned: (LayoutCoordinates) -> Unit
 ) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var cropRectScreen by remember { mutableStateOf<Rect?>(null) }
@@ -276,7 +297,9 @@ private fun ImagesScreenContent(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .fillMaxSize()
     ) {
         Box(
             modifier = Modifier
@@ -284,7 +307,6 @@ private fun ImagesScreenContent(
                 .aspectRatio(1f)
                 .background(Color(0xFF727272))
                 .onGloballyPositioned {
-                    onGloballyPositioned(it)
                     containerSize = it.size
                 },
             contentAlignment = Alignment.Center
