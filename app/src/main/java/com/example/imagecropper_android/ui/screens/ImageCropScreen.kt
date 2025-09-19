@@ -27,13 +27,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
@@ -69,9 +76,11 @@ import com.example.imagecropper_android.util.toCropRectOriginal
 import java.io.File
 import java.util.UUID
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageCropScreen(
-    onSave: (PhotoDto) -> Unit = {}
+    onSave: (PhotoDto) -> Unit = {},
+    onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var imageUri by remember { mutableStateOf<Uri?>(null) }
@@ -113,20 +122,42 @@ fun ImageCropScreen(
         }
     }
 
+    val bmp = bitmap
+    val uriStr = imageUri?.toString()
     Scaffold(
-        floatingActionButton = {
-            MultipleFloatingActionButton(
-                onAttachClick = {
-                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        topBar = {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(
+                        onClick = onBackClick
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = null
+                        )
+                    }
                 },
-                onTakePhotoClick = {
-                    reqPermission.launch(Manifest.permission.CAMERA)
-                }
+                colors = TopAppBarDefaults.topAppBarColors().copy(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+                title = { Text(text = stringResource(R.string.crop_image)) },
             )
+        },
+        floatingActionButton = {
+            if (bmp == null && uriStr == null) {
+                MultipleFloatingActionButton(
+                    onAttachClick = {
+                        pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    onTakePhotoClick = {
+                        reqPermission.launch(Manifest.permission.CAMERA)
+                    }
+                )
+            }
         }
     ) { innerPaddings ->
-        val bmp = bitmap
-        val uriStr = imageUri?.toString()
         if (bmp != null && uriStr != null) {
             ImageCropContent(
                 modifier = Modifier.padding(innerPaddings),
