@@ -1,6 +1,7 @@
 package com.example.imagecropper_android.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -13,7 +14,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SavedRectOutline(rect: Rect?, color: Color) {
     if (rect == null) return
-    Canvas(modifier = Modifier) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
         drawRect(
             color = color.copy(alpha = 0.6f),
             topLeft = Offset(rect.left, rect.top),

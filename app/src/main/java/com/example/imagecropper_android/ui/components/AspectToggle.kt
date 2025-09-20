@@ -10,16 +10,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.imagecropper_android.ui.models.CropAspect
+import com.example.imagecropper_android.ui.theme.ImageCropper_AndroidTheme
 
 @Composable
 fun AspectToggle(
+    modifier: Modifier = Modifier,
     activeAspect: CropAspect,
     onAspectChange: (CropAspect) -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
@@ -40,7 +46,7 @@ fun AspectToggle(
 }
 
 @Composable
-fun SegmentedChip(
+private fun SegmentedChip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit
@@ -58,5 +64,19 @@ fun SegmentedChip(
             .background(bg)
     ) {
         Text(text)
+    }
+}
+
+@Preview
+@Composable
+private fun AspectTogglePreview() {
+    var activeAspect by remember { mutableStateOf(CropAspect.Square) }
+    ImageCropper_AndroidTheme {
+        AspectToggle(
+            activeAspect = activeAspect,
+            onAspectChange = {
+                activeAspect = it
+            }
+        )
     }
 }

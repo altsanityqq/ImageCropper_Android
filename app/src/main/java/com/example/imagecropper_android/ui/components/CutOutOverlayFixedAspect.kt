@@ -2,6 +2,7 @@ package com.example.imagecropper_android.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -81,7 +82,7 @@ fun CutOutOverlayFixedAspect(
         val tr = Offset(r.right, r.top)
         val bl = Offset(r.left, r.bottom)
         val br = Offset(r.right, r.bottom)
-        val thr = handleR * 1.2f
+        val thr = handleR * 2f
         return when {
             (pos - tl).getDistance() <= thr -> DragTarget.TL
             (pos - tr).getDistance() <= thr -> DragTarget.TR
@@ -90,6 +91,22 @@ fun CutOutOverlayFixedAspect(
             pos.x in r.left..r.right && pos.y in r.top..r.bottom -> DragTarget.BODY
             else -> DragTarget.NONE
         }
+    }
+
+    fun hMaxForCorner(anchor: Offset, which: DragTarget, b: Rect, aspectF: Float): Float = when (which) {
+        DragTarget.TL -> min((anchor.x - b.left) / aspectF, (anchor.y - b.top))
+        DragTarget.TR -> min((b.right - anchor.x) / aspectF, (anchor.y - b.top))
+        DragTarget.BL -> min((anchor.x - b.left) / aspectF, (b.bottom - anchor.y))
+        DragTarget.BR -> min((b.right - anchor.x) / aspectF, (b.bottom - anchor.y))
+        else -> 0f
+    }.coerceAtLeast(0f)
+
+    fun topLeftFrom(anchor: Offset, h: Float, which: DragTarget, aspectF: Float): Offset = when (which) {
+        DragTarget.TL -> Offset(anchor.x - h * aspectF, anchor.y - h)
+        DragTarget.TR -> Offset(anchor.x,                 anchor.y - h)
+        DragTarget.BL -> Offset(anchor.x - h * aspectF, anchor.y)
+        DragTarget.BR -> Offset(anchor.x,                 anchor.y)
+        else -> anchor
     }
 
     var currentDragTarget by remember { mutableStateOf(DragTarget.NONE) }
@@ -102,6 +119,7 @@ fun CutOutOverlayFixedAspect(
 
     Canvas(
         modifier = modifier
+            .fillMaxSize()
             .pointerInput(containerSize, imageBounds, aspect) {
                 detectDragGestures(
                     onDragStart = { downPos ->
@@ -109,75 +127,53 @@ fun CutOutOverlayFixedAspect(
                         val r = currentRect()
                         currentDragTarget = hitTest(downPos, r, handleRState)
                         dragAccum = Offset.Zero
-
                         when (currentDragTarget) {
                             DragTarget.TL -> { anchor = Offset(r.right, r.bottom); handleStart = Offset(r.left,  r.top) }
                             DragTarget.TR -> { anchor = Offset(r.left,  r.bottom); handleStart = Offset(r.right, r.top) }
                             DragTarget.BL -> { anchor = Offset(r.right, r.top);    handleStart = Offset(r.left,  r.bottom) }
                             DragTarget.BR -> { anchor = Offset(r.left,  r.top);    handleStart = Offset(r.right, r.bottom) }
-                            DragTarget.BODY, DragTarget.NONE -> Unit
+                            else -> Unit
                         }
                     },
                     onDrag = { change, dragAmount ->
                         change.consumePositionChange()
                         val b = boundsState ?: return@detectDragGestures
-
                         when (currentDragTarget) {
                             DragTarget.BODY -> {
                                 val newTopLeft = clampTopLeft(rectTopLeft + dragAmount, rectHeight, b)
                                 rectTopLeft = newTopLeft
                                 onCropRectChanged(currentRect())
                             }
-
                             DragTarget.TL, DragTarget.TR, DragTarget.BL, DragTarget.BR -> {
                                 dragAccum += dragAmount
-                                val cand = handleStart + dragAmount
-
+                                val cand = handleStart + dragAccum
                                 val dx = abs(cand.x - anchor.x)
                                 val dy = abs(cand.y - anchor.y)
                                 val candWidth  = max(dx, dy)
                                 val candHeight = candWidth / aspectF
-
-                                val maxH = min(b.height, b.width / aspectF)
+                                val hMaxLocal = hMaxForCorner(anchor, currentDragTarget, b, aspectF)
                                 val minH = minHeightForBounds(b)
-
-                                val newH = candHeight.coerceIn(minH, maxH)
-                                val tl = when (currentDragTarget) {
-                                    DragTarget.TL -> Offset(anchor.x - newH * aspectF, anchor.y - newH)
-                                    DragTarget.TR -> Offset(anchor.x,                     anchor.y - newH)
-                                    DragTarget.BL -> Offset(anchor.x - newH * aspectF, anchor.y)
-                                    DragTarget.BR -> Offset(anchor.x,                     anchor.y)
-                                    else -> rectTopLeft
-                                }
+                                val newH = candHeight.coerceIn(minH, hMaxLocal)
+                                val tl = topLeftFrom(anchor, newH, currentDragTarget, aspectF)
                                 rectTopLeft = clampTopLeft(tl, newH, b)
                                 rectHeight = newH
-
                                 onCropRectChanged(currentRect())
                             }
-
-                            DragTarget.NONE -> Unit
+                            else -> Unit
                         }
                     },
-                    onDragEnd = {
-                        currentDragTarget = DragTarget.NONE
-                        onCropCommitted(currentRect())
-                    },
-                    onDragCancel = {
-                        currentDragTarget = DragTarget.NONE
-                        onCropCommitted(currentRect())
-                    }
+                    onDragEnd = { currentDragTarget = DragTarget.NONE; onCropCommitted(currentRect()) },
+                    onDragCancel = { currentDragTarget = DragTarget.NONE; onCropCommitted(currentRect()) }
                 )
             }
     ) {
         val r = currentRect()
-
         drawRect(
             color = Color.White.copy(alpha = .5f),
             topLeft = Offset(r.left, r.top),
             size = Size(r.width, r.height),
             style = Stroke(width = strokeWidth)
         )
-
         listOf(
             Offset(r.left, r.top),
             Offset(r.right, r.top),
@@ -185,12 +181,7 @@ fun CutOutOverlayFixedAspect(
             Offset(r.right, r.bottom)
         ).forEach { c ->
             drawCircle(color = Color.White, radius = handleRadius, center = c)
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.5f),
-                radius = handleRadius,
-                center = c,
-                style = Stroke(width = 2f)
-            )
+            drawCircle(color = Color.Black.copy(alpha = 0.5f), radius = handleRadius, center = c, style = Stroke(width = 2f))
         }
     }
 }
