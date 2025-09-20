@@ -44,6 +44,8 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.request.transformations
+import coil3.size.Precision
+import coil3.size.Size
 import com.example.imagecropper_android.R
 import com.example.imagecropper_android.domain.photo.repository.PhotoRepository
 import com.example.imagecropper_android.ui.components.RectCropTransformation
@@ -138,6 +140,8 @@ private fun PhotoRow(
                 model = ImageRequest.Builder(context)
                     .data(item.originalUri)
                     .allowHardware(false)
+                    .size(Size.ORIGINAL)
+                    .precision(Precision.EXACT)
                     .transformations(RectCropTransformation(item.squareCrop))
                     .build(),
                 contentDescription = "1:1",
@@ -151,6 +155,8 @@ private fun PhotoRow(
                 model = ImageRequest.Builder(context)
                     .data(item.originalUri)
                     .allowHardware(false)
+                    .size(Size.ORIGINAL)
+                    .precision(Precision.EXACT)
                     .transformations(RectCropTransformation(item.rectCrop))
                     .build(),
                 contentDescription = "3:4",
@@ -162,14 +168,12 @@ private fun PhotoRow(
             )
 
             Spacer(Modifier.weight(1f))
-
             IconButton(onClick = onDelete) {
                 Icon(Icons.Outlined.Delete, contentDescription = "Delete")
             }
         }
     }
 }
-
 @Composable
 private fun EmptyState(modifier: Modifier = Modifier) {
     Box(
