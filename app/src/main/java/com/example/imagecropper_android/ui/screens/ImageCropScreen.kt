@@ -63,27 +63,68 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import com.example.imagecropper_android.R
+import com.example.imagecropper_android.domain.photo.repository.PhotoRepository
 import com.example.imagecropper_android.ui.components.AspectToggle
 import com.example.imagecropper_android.ui.components.CutOutOverlayFixedAspect
 import com.example.imagecropper_android.ui.components.SavedRectOutline
-import com.example.imagecropper_android.ui.models.CropAspect
-import com.example.imagecropper_android.ui.models.CropRect
-import com.example.imagecropper_android.ui.models.PhotoDto
+import com.example.imagecropper_android.ui.model.CropAspect
+import com.example.imagecropper_android.ui.model.CropRect
+import com.example.imagecropper_android.ui.model.PhotoUi
+import com.example.imagecropper_android.ui.model.toDomain
 import com.example.imagecropper_android.util.imageBoundsInContainer
 import com.example.imagecropper_android.util.loadBitmap
 import com.example.imagecropper_android.util.toCropRectOriginal
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
+import javax.inject.Inject
 import kotlin.math.min
 import kotlin.math.roundToInt
+
+data class ImageCropState(
+    val isImageSavingSuccess: Boolean = false
+)
+
+@HiltViewModel
+class ImageCropViewModel @Inject constructor(
+    private val photoRepository: PhotoRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(ImageCropState())
+    val uiState = _uiState.asStateFlow()
+
+    fun savePhoto(photoUi: PhotoUi) {
+        viewModelScope.launch {
+            photoRepository.save(photoUi.toDomain())
+            _uiState.update {
+                it.copy(isImageSavingSuccess = true)
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageCropScreen(
-    onSave: (PhotoDto) -> Unit = {},
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onImageSaved: () -> Unit = {},
+    viewModel: ImageCropViewModel = hiltViewModel()
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    if (state.isImageSavingSuccess) {
+        onImageSaved()
+    }
+
     val context = LocalContext.current
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var bitmap by remember(imageUri) {
@@ -165,7 +206,9 @@ fun ImageCropScreen(
                 modifier = Modifier.padding(innerPaddings),
                 bitmap = bmp,
                 originalUri = uriStr,
-                onSave = onSave
+                onSave = {
+                    viewModel.savePhoto(it)
+                }
             )
         }
     }
@@ -244,7 +287,7 @@ private fun ImageCropContent(
     modifier: Modifier = Modifier,
     bitmap: Bitmap,
     originalUri: String,
-    onSave: (PhotoDto) -> Unit
+    onSave: (PhotoUi) -> Unit
 ) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var activeAspect by remember { mutableStateOf(CropAspect.Square) }
@@ -283,12 +326,16 @@ private fun ImageCropContent(
             Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().clipToBounds(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clipToBounds(),
                 contentScale = ContentScale.Fit
             )
 
-            val savedSquareScreen = savedSquareOriginal?.let { originalToScreenRect(bitmap, containerSize, it) }
-            val savedRectScreen = savedRectOriginal?.let { originalToScreenRect(bitmap, containerSize, it) }
+            val savedSquareScreen =
+                savedSquareOriginal?.let { originalToScreenRect(bitmap, containerSize, it) }
+            val savedRectScreen =
+                savedRectOriginal?.let { originalToScreenRect(bitmap, containerSize, it) }
 
             SavedRectOutline(savedSquareScreen, color = Color.Cyan)
             SavedRectOutline(savedRectScreen, color = Color.Magenta)
@@ -313,6 +360,7 @@ private fun ImageCropContent(
                         savedSquareOriginal = crop
                         squarePreview = cropBitmapOriginal(bitmap, crop)
                     }
+
                     CropAspect.Ratio3x4 -> {
                         savedRectOriginal = crop
                         rectPreview = cropBitmapOriginal(bitmap, crop)
@@ -329,8 +377,13 @@ private fun ImageCropContent(
 
             OutlinedButton(onClick = {
                 when (activeAspect) {
-                    CropAspect.Square -> { savedSquareOriginal = null; squarePreview = null }
-                    CropAspect.Ratio3x4 -> { savedRectOriginal = null; rectPreview = null }
+                    CropAspect.Square -> {
+                        savedSquareOriginal = null; squarePreview = null
+                    }
+
+                    CropAspect.Ratio3x4 -> {
+                        savedRectOriginal = null; rectPreview = null
+                    }
                 }
             }) {
                 Text("${stringResource(R.string.reset)} ${if (activeAspect == CropAspect.Square) "1:1" else "3:4"}")
@@ -357,7 +410,9 @@ private fun ImageCropContent(
                         Image(
                             bitmap = sq.asImageBitmap(),
                             contentDescription = stringResource(R.string.square_preview),
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
@@ -369,19 +424,29 @@ private fun ImageCropContent(
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val r34 = rectPreview
-                Box(Modifier.width(140.dp).aspectRatio(3f / 4f), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .width(140.dp)
+                        .aspectRatio(3f / 4f),
+                    contentAlignment = Alignment.Center
+                ) {
                     if (r34 != null) {
                         Image(
                             bitmap = r34.asImageBitmap(),
                             contentDescription = "3:4 ${stringResource(R.string.preview)}",
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Crop
                         )
                     } else {
                         PreviewPlaceholder("3:4", rounded = 12)
                     }
                 }
-                Text("${stringResource(R.string.rect)} 3:4", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "${stringResource(R.string.rect)} 3:4",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
 
@@ -392,7 +457,7 @@ private fun ImageCropContent(
                 val squareCrop = savedSquareOriginal
                 val rectCrop = savedRectOriginal
                 if (squareCrop != null && rectCrop != null) {
-                    val dto = PhotoDto(
+                    val dto = PhotoUi(
                         id = UUID.randomUUID().toString(),
                         originalUri = originalUri,
                         squareCrop = squareCrop,
@@ -404,7 +469,9 @@ private fun ImageCropContent(
             },
             enabled = bothSelected,
             modifier = Modifier.fillMaxWidth()
-        ) { Text(stringResource(R.string.save)) }
+        ) {
+            Text(stringResource(R.string.save))
+        }
     }
 }
 

@@ -24,7 +24,9 @@ fun AppNavigation() {
         }
         composable<Route.ImageCrop> {
             ImageCropScreen(
-                onSave = {},
+                onImageSaved = {
+                    navController.popBackStack()
+                },
                 onBackClick = {
                     navController.popBackStack()
                 }

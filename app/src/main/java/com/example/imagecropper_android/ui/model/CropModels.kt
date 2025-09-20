@@ -1,12 +1,4 @@
-package com.example.imagecropper_android.ui.models
-
-data class PhotoDto(
-    val id: String,
-    val originalUri: String,
-    val squareCrop: CropRect,
-    val rectCrop: CropRect,
-    val createdAt: Long
-)
+package com.example.imagecropper_android.ui.model
 
 data class CropRect(
     val topLeft: PointF,
