@@ -18,3 +18,4 @@ It allows users to pick or capture a photo, crop it in two formats (**1:1** squa
 ---
 
 📸 Screenshots
+https://github.com/user-attachments/assets/883e97cc-4a35-40ce-8325-0974fd54d68c
