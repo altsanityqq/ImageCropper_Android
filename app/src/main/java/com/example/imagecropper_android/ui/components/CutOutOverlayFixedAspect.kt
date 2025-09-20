@@ -15,8 +15,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.example.imagecropper_android.ui.models.CropAspect
-import com.example.imagecropper_android.ui.models.DragTarget
+import com.example.imagecropper_android.ui.model.CropAspect
+import com.example.imagecropper_android.ui.model.DragTarget
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

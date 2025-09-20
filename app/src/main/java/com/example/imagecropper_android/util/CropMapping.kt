@@ -3,9 +3,9 @@ package com.example.imagecropper_android.util
 import android.graphics.Bitmap
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.IntSize
-import com.example.imagecropper_android.ui.models.CropRect
-import com.example.imagecropper_android.ui.models.PointF
-import com.example.imagecropper_android.ui.models.RectInt
+import com.example.imagecropper_android.ui.model.CropRect
+import com.example.imagecropper_android.ui.model.PointF
+import com.example.imagecropper_android.ui.model.RectInt
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt

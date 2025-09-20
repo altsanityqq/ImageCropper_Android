@@ -10,4 +10,5 @@
     <string name="rect">Rect</string>
     <string name="preview">Preview</string>
     <string name="save">Save</string>
+    <string name="empty_list_message">The list is empty.\nAdd the first photo 🙂</string>
 </resources>
